@@ -1,0 +1,24 @@
+{
+  "name": "fusion-skill",
+  "owner": {
+    "name": "neocybereth",
+    "url": "https://github.com/neocybereth"
+  },
+  "metadata": {
+    "description": "Marketplace hosting the Fusion local coding skill."
+  },
+  "plugins": [
+    {
+      "name": "fusion",
+      "description": "Run a local fusion-style coding loop between Codex and Claude Code through claude-channel-cli.",
+      "version": "0.1.0",
+      "author": {
+        "name": "neocybereth",
+        "url": "https://github.com/neocybereth"
+      },
+      "source": "./",
+      "category": "developer-tools",
+      "homepage": "https://github.com/neocybereth/fusion-skill"
+    }
+  ]
+}

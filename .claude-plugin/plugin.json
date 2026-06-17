@@ -1,0 +1,26 @@
+{
+  "name": "fusion",
+  "version": "0.1.0",
+  "description": "Run a local fusion-style coding loop between Codex and Claude Code through claude-channel-cli.",
+  "author": {
+    "name": "neocybereth",
+    "email": "sean@arrowburn.co.nz",
+    "url": "https://github.com/neocybereth"
+  },
+  "homepage": "https://github.com/neocybereth/fusion-skill",
+  "repository": "https://github.com/neocybereth/fusion-skill",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "claude-code",
+    "claude-channel-cli",
+    "compound-engineering",
+    "fusion",
+    "agent-skills",
+    "code-review",
+    "planning"
+  ],
+  "skills": [
+    "./skills/fusion"
+  ]
+}
