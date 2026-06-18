@@ -1,6 +1,6 @@
 ---
 name: fusion
-description: Fusion loop for local coding work with Codex and Claude Code. Use when the user asks for /fusion, wants Codex and Claude collaboration through claude-channel-cli, requests a blind planning or review panel, or asks for a local OpenRouter Fusion-style compound-engineering loop.
+description: Fusion loop for local coding work with Codex and Claude Code. Use when the user asks for /fusion, wants Codex and Claude collaboration through claude-channel-cli, requests a blind planning or review panel, needs claude-channel-cli setup guidance before fusion, or asks for a local OpenRouter Fusion-style compound-engineering loop.
 ---
 
 # Fusion
@@ -20,19 +20,21 @@ This skill is for codebase work where another independent agent can materially i
 
 For detailed stop conditions, resume rules, and artifact contracts, read `references/protocol.md` when a run spans more than one phase, resumes after interruption, or hits disagreement.
 
+For missing or unreachable Claude Channel setup, read `references/channel-setup.md` before telling the user what to do.
+
 For Claude-facing prompt templates, read `references/prompts.md` before the first `ask_claude` call.
 
 For compound-engineering skill mapping, read `references/compound-map.md` when `ce-*` skills are available.
 
 ## Step 1 - Check The Channel
 
-Use `claude-channel-cli` to reach Claude Code.
+Use `claude-channel-cli` to reach Claude Code. Diagnose setup before creating fusion artifacts.
 
-1. Load Claude Channel MCP tools with `tool_search` if they are not already available.
-2. Call `list_claude_targets`.
-3. If there is one target, call `status_claude_channel` for it.
-4. If there are multiple targets, ask the user which visible Claude Code window to use.
-5. If no target is reachable, stop and tell the user to start Claude Code with the channel enabled.
+1. If Claude Channel MCP tools are available, call `list_claude_targets`, then `status_claude_channel` for the selected target.
+2. If MCP tools are unavailable, check CLI fallback with `command -v claude-channel`, `claude-channel --version`, and `claude-channel status`.
+3. If the CLI is missing, or status/list shows no live target, stop the fusion run and walk the user through `references/channel-setup.md`.
+4. If there is one live target, use it.
+5. If there are multiple live targets, ask the user which visible Claude Code window to use.
 
 Completion criterion: exactly one reachable Claude target is selected, or the run is stopped before any fusion artifacts claim Claude participated.
 

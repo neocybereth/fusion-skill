@@ -43,6 +43,7 @@ def main() -> int:
     require(SKILL_DIR / "SKILL.md")
     require(SKILL_DIR / "agents" / "openai.yaml")
     require(SKILL_DIR / "scripts" / "init_fusion_run.py")
+    require(SKILL_DIR / "references" / "channel-setup.md")
     require(SKILL_DIR / "references" / "protocol.md")
     require(SKILL_DIR / "references" / "prompts.md")
     require(ROOT / ".claude-plugin" / "plugin.json")

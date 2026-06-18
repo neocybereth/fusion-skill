@@ -23,6 +23,42 @@ For Claude Code plugin-style installs:
 
 The skill expects a reachable Claude Code session with `claude-channel-cli` enabled.
 
+## Claude Channel Setup
+
+Install the channel CLI once:
+
+```bash
+npm install -g claude-channel-cli
+```
+
+Register the receiver project:
+
+```bash
+cd /path/to/project
+claude-channel setup-mcp
+```
+
+Start Claude Code in another tab from that project:
+
+```bash
+claude --dangerously-load-development-channels server:claude-channel-cli
+```
+
+When Claude shows the development-channel warning, choose:
+
+```text
+1. I am using this for local development
+```
+
+Optional, but recommended for Codex typed tools:
+
+```bash
+claude-channel setup-codex-plugin
+codex plugin add claude-channel-cli@personal
+```
+
+Then start a new Codex thread and run `/fusion`.
+
 ## Usage
 
 ```text
@@ -93,6 +129,7 @@ These files make the loop resumable, reviewable, and easy to inspect after the a
 ```text
 skills/fusion/SKILL.md
 skills/fusion/agents/openai.yaml
+skills/fusion/references/channel-setup.md
 skills/fusion/references/
 skills/fusion/scripts/
 scripts/validate.py
