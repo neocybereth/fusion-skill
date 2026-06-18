@@ -1,40 +1,50 @@
 ---
 name: fusion
-description: Run a local fusion-style coding loop between Codex and Claude Code through claude-channel-cli. Use when the user asks for /fusion, Codex and Claude collaboration, blind panel planning or review, local OpenRouter Fusion-style development, or a compound-engineering loop that coordinates plan, implementation, review, verification, and commit/PR work.
+description: Fusion loop for local coding work with Codex and Claude Code. Use when the user asks for /fusion, wants Codex and Claude collaboration through claude-channel-cli, requests a blind planning or review panel, or asks for a local OpenRouter Fusion-style compound-engineering loop.
 ---
 
 # Fusion
 
-Use this skill to coordinate Codex and a live Claude Code session as a local two-agent panel for real codebase work. The goal is not to mimic OpenRouter Fusion exactly. The goal is to adapt its strongest pattern locally: independent passes, a judge that exposes agreement and disagreement, and a synthesizer that chooses the next engineering action.
+Run a local fusion loop between Codex and a live Claude Code session. Fusion means a predictable process: freeze the task, get blind independent judgment, judge the disagreement, synthesize one next action, and let only one writer edit the repo at a time.
 
-## Preconditions
+This skill is for codebase work where another independent agent can materially improve planning or review. It is not a server-side multi-model API, a daemon, or a reason to panel mechanical implementation steps.
 
-- Use `claude-channel-cli` to communicate with Claude Code.
-- If the Claude Channel MCP tools are not loaded, search for them with `tool_search` before falling back to the CLI.
-- Call `list_claude_targets` or `status_claude_channel` before every `ask_claude` sequence.
-- If multiple Claude targets are live, ask the user which visible Claude Code window to use.
-- If no Claude target is reachable, stop and tell the user to start Claude Code with the channel enabled. Do not pretend the fusion loop ran.
-- When compound-engineering skills are available, use them for their matching phase. If they are unavailable, continue with the closest local workflow and record the fallback in the run log.
+## Core Rules
 
-## Non-Negotiables
+- Keep panel work blind: Claude must not see Codex's draft before writing its own.
+- Persist every phase under `.fusion/<run-id>/` before using it to decide the next action.
+- Use one writer per implementation or fix phase: `codex`, `claude`, or `none`.
+- Panel planning and review by default. Do not panel implementation or routine verification unless the user explicitly asks.
+- Stop on `NEEDS_INPUT`, `BLOCKED`, `DONE`, an unreachable Claude channel, or two non-converging panel rounds in one phase.
+- Ask the user before destructive changes, dependency installs, commits, pushes, or PRs.
 
-1. Preserve blind independence. Send Claude only the frozen task or phase prompt, never Codex's draft answer.
-2. Persist artifacts before moving to the next phase.
-3. Use one writer at a time. Do not let Codex and Claude edit the same working tree concurrently.
-4. Panel only judgment-heavy phases by default: planning and review.
-5. Use explicit status values: `PROCEED`, `NEEDS_INPUT`, `BLOCKED`, or `DONE`.
-6. Gate irreversible actions with the user: branch creation if disruptive, dependency installation, destructive changes, commits, pushes, and PR creation.
-7. Bound the loop. Default to one panel round per phase, with a hard maximum of two rounds per phase unless the user explicitly asks for more.
+For detailed stop conditions, resume rules, and artifact contracts, read `references/protocol.md` when a run spans more than one phase, resumes after interruption, or hits disagreement.
 
-## Start A Run
+For Claude-facing prompt templates, read `references/prompts.md` before the first `ask_claude` call.
 
-Create a run directory before the first panel:
+For compound-engineering skill mapping, read `references/compound-map.md` when `ce-*` skills are available.
+
+## Step 1 - Check The Channel
+
+Use `claude-channel-cli` to reach Claude Code.
+
+1. Load Claude Channel MCP tools with `tool_search` if they are not already available.
+2. Call `list_claude_targets`.
+3. If there is one target, call `status_claude_channel` for it.
+4. If there are multiple targets, ask the user which visible Claude Code window to use.
+5. If no target is reachable, stop and tell the user to start Claude Code with the channel enabled.
+
+Completion criterion: exactly one reachable Claude target is selected, or the run is stopped before any fusion artifacts claim Claude participated.
+
+## Step 2 - Start Or Resume Artifacts
+
+Resolve `SKILL_DIR` to the directory containing this `SKILL.md`. Start a new run with:
 
 ```bash
 python3 "$SKILL_DIR/scripts/init_fusion_run.py" --goal "USER GOAL"
 ```
 
-Resolve `SKILL_DIR` to the directory that contains this `SKILL.md`. If this repository is checked out directly, `skills/fusion` is the skill directory. The script creates:
+The run directory is:
 
 ```text
 .fusion/<run-id>/
@@ -49,148 +59,103 @@ Resolve `SKILL_DIR` to the directory that contains this `SKILL.md`. If this repo
     synthesis.md
 ```
 
-Keep all fusion artifacts in that run directory. They are the shared memory, audit trail, and resume point.
+For a resume, read the latest `.fusion/<run-id>/state.json` and latest `synthesis.md`, then verify the repository branch and Claude target still match the run.
 
-## Workflow
+Completion criterion: the active run has `task.md`, `state.json`, `decision-log.md`, and a current round directory before planning continues.
 
-### 1. Orient
+## Step 3 - Freeze The Task
 
-Read the user's goal, inspect the repository, and write a concise frozen task spec to `.fusion/<run-id>/task.md` and `round-1/task.md`.
+Inspect the repository enough to write a concise frozen task in `round-N/task.md`.
 
 Include:
 
 - user goal
 - repository path and branch
-- relevant constraints
 - current phase
+- relevant constraints and gates
 - files or modules already known to matter
-- budget limits or gates
+- verification expectations
 
-### 2. Plan Panel
+Do not include Codex's proposed solution in the frozen task. The task is the shared panel input.
 
-Run a blind panel:
+Completion criterion: `round-N/task.md` is specific enough for Claude to produce an independent plan or review without seeing Codex's answer.
 
-- Codex writes its independent plan to `round-N/codex.md`.
-- Ask Claude the same frozen task spec through `ask_claude`; save the answer to `round-N/claude.md`.
-- Do not show Claude Codex's plan.
-- Do not revise Codex's plan after reading Claude's answer; write corrections in judge or synthesis instead.
+## Step 4 - Run A Blind Panel
 
-Judge the two plans in `round-N/judge.md` with exactly these sections:
+Use this step for planning and review.
 
-```markdown
-# Judge
-
-## Consensus
-
-## Contradictions
-
-## Codex Unique Insights
-
-## Claude Unique Insights
-
-## Blind Spots
-
-## Risks
-```
-
-Synthesize in `round-N/synthesis.md`:
+1. Codex writes its independent answer to `round-N/codex.md`.
+2. Send Claude only `round-N/task.md` plus role instructions. Save the response to `round-N/claude.md`.
+3. Do not revise `codex.md` after reading Claude. Put corrections in judge or synthesis.
+4. Write `round-N/judge.md` with:
+   - consensus
+   - contradictions
+   - Codex unique insights
+   - Claude unique insights
+   - blind spots
+   - risks
+5. Write `round-N/synthesis.md` starting with:
 
 ```markdown
-# Synthesis
-
 STATUS: PROCEED
 NEXT_PHASE: implement
 WRITER: claude
-
-## Decision
-
-## Rationale
-
-## Gates
-
-## Next Prompt
 ```
 
-If the plan is risky or ambiguous, set `STATUS: NEEDS_INPUT` and ask the user before implementation.
+Allowed statuses are `PROCEED`, `NEEDS_INPUT`, `BLOCKED`, and `DONE`.
 
-### 3. Implement
+Completion criterion: synthesis names one status, one next phase, one writer, the chosen action, and the reason discarded alternatives lost.
 
-Use one writer. The writer may be Codex or Claude, but not both at once.
+## Step 5 - Implement With One Writer
 
-Default choices:
+Assign exactly one writer from the synthesis.
 
-- Use Claude as writer when the user wants Claude Code's native compound-engineering loop.
-- Use Codex as writer when Codex has more local context, loaded skills, or tool access for the task.
+- If `WRITER: claude`, ask Claude to use the relevant compound-engineering workflow, usually `ce-work`, and require a completion report with changed files, checks run, and blockers.
+- If `WRITER: codex`, edit locally and record the implementation summary in the run directory.
+- If the assigned writer needs to change scope materially, stop and write a new synthesis before continuing.
 
-If Claude writes, ask it to use the relevant compound-engineering workflow, usually `ce-work`, and require a concise completion report with changed files, tests run, and blockers. After Claude finishes, Codex must inspect the diff before proceeding.
+After implementation, the non-writer inspects the diff before review or verification.
 
-If Codex writes, make scoped edits locally and record the implementation summary in the run directory.
+Completion criterion: the writer's changed files are inspectable from the current checkout, and the run directory records what changed and what checks were run.
 
-### 4. Review Panel
+## Step 6 - Review The Diff
 
-Panel the diff, not the whole original task.
+Use a blind panel on the diff when the change is non-trivial.
 
-- Codex reviews independently and writes findings to `round-N/codex.md`.
-- Ask Claude to review the same diff or file list independently, preferably with `ce-code-review` in report-only mode. Save the answer to `round-N/claude.md`.
-- Judge findings by severity, confidence, overlap, and actionability.
-- Synthesize which fixes to apply.
+1. Freeze the review task with the goal, changed files, and focused diff context.
+2. Codex writes findings to `round-N/codex.md`.
+3. Ask Claude for an independent report-only review, preferably with `ce-code-review` if available. Save it to `round-N/claude.md`.
+4. Judge findings by concrete failure mode, severity, confidence, overlap, and actionability.
+5. Synthesize which fixes to apply and who writes them.
 
-Do not apply low-confidence review comments just because both agents produced words. Require a concrete failure mode.
+Do not apply a review comment unless it names a plausible failure mode.
 
-### 5. Verify
+Completion criterion: every accepted finding has an owner and fix plan, and every rejected material finding has a recorded reason.
 
-Run the repository's normal checks. Use the most relevant compound-engineering verification skill when available:
+## Step 7 - Verify
 
-- unit or integration tests
-- typecheck or lint
-- build
+Run the checks appropriate to the changed surface:
+
+- tests, typecheck, lint, or build
 - browser or dogfood checks for UI changes
-- targeted manual checks for behavior that automation cannot cover
+- targeted manual verification where automation is insufficient
 
-Record commands and outcomes in the run directory. If verification fails, synthesize whether to return to implementation, ask the user, or block.
+Record commands and outcomes in the run directory. If checks fail, synthesize whether to return to implementation, ask the user, or block.
 
-### 6. Commit Or PR
+Completion criterion: verification evidence is recorded and the synthesis says either `DONE`, `PROCEED` to commit/PR, `PROCEED` back to implementation, `NEEDS_INPUT`, or `BLOCKED`.
 
-Commit, push, or open a PR only after a user gate. Use the repository's normal flow or `ce-commit-push-pr` if available.
+## Step 8 - Commit Or PR Gate
 
-Before the gate, show:
+Commit, push, or open a PR only after explicit user approval.
 
-- summary of changes
-- tests run
+Before asking, show:
+
+- change summary
+- tests and checks run
 - remaining risks
 - files changed
 - proposed commit message or PR title
 
-## Claude Prompts
+Use `ce-commit-push-pr` when available and appropriate.
 
-Use `references/prompts.md` for phase-specific Claude prompts. Keep every Claude-facing prompt explicit and source-labeled with `From Codex:`.
-
-For every Claude ask:
-
-- include the phase
-- include the frozen task or diff context
-- state whether Claude is panelist, writer, or reviewer
-- require a structured response
-- require Claude to avoid editing unless assigned `WRITER`
-
-## Status Handling
-
-- `PROCEED`: continue to the next phase.
-- `NEEDS_INPUT`: stop and ask the user a specific question.
-- `BLOCKED`: stop after documenting the blocker and what was tried.
-- `DONE`: final response may be sent.
-
-If an artifact lacks a status, treat the phase as `BLOCKED` until clarified.
-
-## Failure Modes
-
-Read `references/protocol.md` when the loop gets complex, resumes after interruption, or hits disagreement. The common failures are:
-
-- anchoring: Claude saw Codex's reasoning before writing its own
-- stale channel: Claude target restarted or became unreachable
-- conflicting edits: both agents wrote to the same files
-- shallow agreement: judge found consensus without checking evidence
-- context blowup: artifacts are too large to reuse directly
-- runaway loop: no round cap or no explicit stop condition
-
-Mitigate by freezing task specs, checking channel status before asks, using one writer, judging concrete claims, summarizing artifacts, and enforcing phase caps.
+Completion criterion: the user approved the final git action, or the run stops before any irreversible git operation.
