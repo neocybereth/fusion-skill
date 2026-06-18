@@ -17,6 +17,7 @@ Every run lives under `.fusion/<run-id>/`.
     claude.md
     judge.md
     synthesis.md
+    grill.md
 ```
 
 Write artifacts before making dependent decisions. Prefer concise markdown over large transcripts. Link to full logs or command output files when needed.
@@ -43,6 +44,16 @@ Use for implementation and verification.
 3. Save the writer's completion report.
 4. Have the non-writer inspect the result before the next phase.
 
+### Grill Round
+
+Use after a planning panel synthesis and before implementation.
+
+1. Show the user the synthesized plan from `synthesis.md` before continuing.
+2. Run `$grill-with-docs` against that plan.
+3. Ask one grill question at a time, unless codebase exploration can answer it.
+4. Save user answers, code or documentation evidence, documentation changes, and remaining risks to `grill.md`.
+5. Preserve the panel-produced `synthesis.md`, then write a post-grill synthesis in a later round before assigning an implementation writer.
+
 ## Judge Rubric
 
 The judge must identify:
@@ -59,12 +70,12 @@ Reject vague judgments. A useful judgment names files, tests, commands, behavior
 
 ## Synthesis Contract
 
-Every synthesis starts with:
+Every synthesis starts with a status block. Use appropriate values for the phase. A planning synthesis that is ready to continue toward implementation first routes through grill:
 
 ```markdown
 STATUS: PROCEED
-NEXT_PHASE: implement
-WRITER: claude
+NEXT_PHASE: grill
+WRITER: none
 ```
 
 Allowed statuses:
@@ -78,6 +89,7 @@ Allowed phases:
 
 - `orient`
 - `plan`
+- `grill`
 - `implement`
 - `review`
 - `verify`

@@ -1,6 +1,6 @@
 ---
 name: fusion
-description: Fusion loop for local coding work with Codex and Claude Code. Use when the user asks for /fusion, wants Codex and Claude collaboration through claude-channel-cli, requests a blind planning or review panel, needs claude-channel-cli setup guidance before fusion, or asks for a local OpenRouter Fusion-style compound-engineering loop.
+description: Fusion loop for local coding work with Codex and Claude Code. Use when the user asks for /fusion, wants Codex and Claude collaboration through claude-channel-cli, requests a blind planning or review panel, needs claude-channel-cli setup guidance before fusion, or asks for a local OpenRouter Fusion-style compound-engineering loop with post-plan grill-with-docs challenge.
 ---
 
 # Fusion
@@ -15,6 +15,8 @@ This skill is for codebase work where another independent agent can materially i
 - Persist every phase under `.fusion/<run-id>/` before using it to decide the next action.
 - Use one writer per implementation or fix phase: `codex`, `claude`, or `none`.
 - Panel planning and review by default. Do not panel implementation or routine verification unless the user explicitly asks.
+- After a planning panel produces a synthesis, show the user the synthesized plan before continuing into `$grill-with-docs`.
+- Run `$grill-with-docs` on the synthesized plan before implementation unless the planning synthesis is `NEEDS_INPUT`, `BLOCKED`, or `DONE`.
 - Stop on `NEEDS_INPUT`, `BLOCKED`, `DONE`, an unreachable Claude channel, or two non-converging panel rounds in one phase.
 - Ask the user before destructive changes, dependency installs, commits, pushes, or PRs.
 
@@ -59,6 +61,7 @@ The run directory is:
     claude.md
     judge.md
     synthesis.md
+    grill.md
 ```
 
 For a resume, read the latest `.fusion/<run-id>/state.json` and latest `synthesis.md`, then verify the repository branch and Claude target still match the run.
@@ -96,7 +99,36 @@ Use this step for planning and review.
    - Claude unique insights
    - blind spots
    - risks
-5. Write `round-N/synthesis.md` starting with:
+5. For a planning panel that is ready to continue toward implementation, write `round-N/synthesis.md` starting with:
+
+```markdown
+STATUS: PROCEED
+NEXT_PHASE: grill
+WRITER: none
+```
+
+Allowed statuses are `PROCEED`, `NEEDS_INPUT`, `BLOCKED`, and `DONE`.
+
+Review panels route directly to the relevant next phase.
+
+Completion criterion: synthesis names one status, one next phase, one writer, the chosen action, and the reason discarded alternatives lost.
+
+## Step 5 - Show The Plan And Grill It
+
+Use this step after a planning panel synthesis and before implementation.
+
+1. Show the user the synthesized plan from `round-N/synthesis.md` before continuing. Include:
+   - chosen plan
+   - expected writer after grilling, if already apparent
+   - verification strategy
+   - unresolved questions or risks
+   - alternatives discarded by the judge
+2. Tell the user that `$grill-with-docs` is starting against that plan.
+3. Use `$grill-with-docs` to challenge the synthesized plan against the repository's domain language, code, `CONTEXT.md`, and ADRs.
+4. Ask grill questions one at a time, waiting for user feedback on each question unless the answer can be discovered by exploring the codebase.
+5. Update glossary or ADR docs inline when `$grill-with-docs` resolves terms or decisions.
+6. Record outcomes in `round-N/grill.md`, including code or documentation evidence, user answers, documentation changes, and remaining risks.
+7. Preserve the panel-produced `round-N/synthesis.md`. If grilling resolves cleanly, create `round-(N+1)/task.md` summarizing the grilled plan and write `round-(N+1)/synthesis.md` starting with:
 
 ```markdown
 STATUS: PROCEED
@@ -104,11 +136,11 @@ NEXT_PHASE: implement
 WRITER: claude
 ```
 
-Allowed statuses are `PROCEED`, `NEEDS_INPUT`, `BLOCKED`, and `DONE`.
+If grilling changes the plan materially, record what changed and why before implementation. If grilling exposes unresolved product or domain decisions, set `STATUS: NEEDS_INPUT` in the new synthesis instead of implementing.
 
-Completion criterion: synthesis names one status, one next phase, one writer, the chosen action, and the reason discarded alternatives lost.
+Completion criterion: the user has seen the panel-produced plan, `$grill-with-docs` has completed or stopped on a question, and the latest synthesis either routes to implementation with one writer or stops with `NEEDS_INPUT`, `BLOCKED`, or `DONE`.
 
-## Step 5 - Implement With One Writer
+## Step 6 - Implement With One Writer
 
 Assign exactly one writer from the synthesis.
 
@@ -120,7 +152,7 @@ After implementation, the non-writer inspects the diff before review or verifica
 
 Completion criterion: the writer's changed files are inspectable from the current checkout, and the run directory records what changed and what checks were run.
 
-## Step 6 - Review The Diff
+## Step 7 - Review The Diff
 
 Use a blind panel on the diff when the change is non-trivial.
 
@@ -134,7 +166,7 @@ Do not apply a review comment unless it names a plausible failure mode.
 
 Completion criterion: every accepted finding has an owner and fix plan, and every rejected material finding has a recorded reason.
 
-## Step 7 - Verify
+## Step 8 - Verify
 
 Run the checks appropriate to the changed surface:
 
@@ -146,7 +178,7 @@ Record commands and outcomes in the run directory. If checks fail, synthesize wh
 
 Completion criterion: verification evidence is recorded and the synthesis says either `DONE`, `PROCEED` to commit/PR, `PROCEED` back to implementation, `NEEDS_INPUT`, or `BLOCKED`.
 
-## Step 8 - Commit Or PR Gate
+## Step 9 - Commit Or PR Gate
 
 Commit, push, or open a PR only after explicit user approval.
 

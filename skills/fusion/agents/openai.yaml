@@ -1,7 +1,7 @@
 interface:
   display_name: "Fusion"
-  short_description: "Coordinate Codex and Claude Code in blind coding panels."
-  default_prompt: "Use $fusion to run a blind Codex and Claude Code fusion loop for this coding task."
+  short_description: "Coordinate Codex and Claude Code panels, then grill the plan against docs."
+  default_prompt: "Use $fusion to run a blind Codex and Claude Code fusion loop, show the synthesized plan, and grill it against project docs before implementation."
   brand_color: "#4F46E5"
 
 policy:
